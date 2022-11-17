@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 
 
 
-
 def generate_data(n_samples, n_features, n_clusters, n_outliers, n_inliers, n_noise, random_state):
     """
     Generate data for clustering
@@ -27,16 +26,18 @@ def generate_data(n_samples, n_features, n_clusters, n_outliers, n_inliers, n_no
     # add noise
     X = np.concatenate((X, np.random.uniform(low=-15, high=15, size=(n_noise, n_features))), axis=0)
     # shuffle data
-  
+    X, y = shuffle(X, y, random_state=random_state)
+    # return data
     return X, y
 
-def make_blobs(n_samples=100, n_features=2, centers=3, cluster_std=1.0, shuffle=True, random_state=None):
+def make_blobs(n_samples=100, n_features=2, centers=3, cluster_std=1.0, center_box=(-10.0, 10.0), shuffle=True, random_state=None):
     """
     Generate isotropic Gaussian blobs for clustering.
     :param n_samples: The total number of points equally divided among clusters.
     :param n_features: The number of features for each sample.
     :param centers: The number of centers to generate, or the fixed center locations.
     :param cluster_std: The standard deviation of the clusters.
+    :param center_box: The bounding box for each cluster center when centers are generated at random.
     :param shuffle: Shuffle the samples.
     :param random_state: Determines random number generation for dataset creation. Pass an int for reproducible output across multiple function calls.
     :return: X, y
@@ -45,44 +46,62 @@ def make_blobs(n_samples=100, n_features=2, centers=3, cluster_std=1.0, shuffle=
     assert n_samples >= centers, "n_samples should be greater than or equal to n_centers"
     assert n_features > 0, "n_features should be greater than 0"
     assert cluster_std > 0, "cluster_std should be greater than 0"
+    assert center_box[0] < center_box[1], "center_box should be (min, max)"
+    # generate data
+    generator = check_random_state(random_state)
+    centers = generator.uniform(center_box[0], center_box[1], size=(centers, n_features))
+    X = []
+    y = []
+    for i in range(centers.shape[0]):
+        X.append(centers[i] + generator.normal(scale=cluster_std, size=(int(n_samples / centers.shape[0]), n_features)))
+        y.append(np.full(int(n_samples / centers.shape[0]), fill_value=i, dtype=np.int))
+    X = np.concatenate(X, axis=0)
+    y = np.concatenate(y, axis=0)
+    # shuffle data
+    if shuffle:
+        X, y = shuffle(X, y, random_state=random_state)
+    # return data
+    return X, y
+
+def shuffle(X, y, random_state=42):                 #! 
+    """
+    Shuffle data
+    :param X: data
+    :param y: labels
+    :param random_state: random state
+    :return: X, y
+    """
+    # shuffle data
+    generator = check_random_state(random_state)
+    indices = np.arange(X.shape[0])
+    generator.shuffle(indices)
+    X = X[indices]
+    y = y[indices]
+    # return data
+    return X, y
+
+def check_random_state(seed):
+    """
+    Turn seed into a np.random.RandomState instance
+    :param seed: None
+    :return: np.random.RandomState instance
+    """
+    if seed is None or seed is np.random:
+        return np.random.mtrand._rand
+    # if isinstance(seed, (numbers.Integral, np.integer)):
+    #     return np.random.RandomState(seed)
+    if isinstance(seed, np.random.RandomState):
+        return seed
+    raise ValueError('%r cannot be used to seed a numpy.random.RandomState instance' % seed)
+
+
+if __name__ == "__main__":
     # generate data
     
-    x = np.linspace(-10, 10, centers).reshape(centers, 1)
-    np.random.shuffle(x)
-    y = np.linspace(-10, 10, centers).reshape(centers, 1)
-    np.random.shuffle(y)
+    random_state = 42
 
-    
-
-
-    centers_vector = np.concatenate((x, y), axis=1)
-    print(centers_vector)
-    # centers_vector = np.random.normal( size=(centers, n_features))
-    # centers_vector = np.cumsum(centers_vector, axis=0)
-    # distance_between_centers = n_samples/centers * 2/
-    # random_array = np.random.rand(centers)
-    # print(random_array)
-
-    # print(centers)
-
-    
-
-    return centers_vector
-
-
-
-    # return X, y
-
-
-for i in range(10):
-    centers = make_blobs(n_samples=100, n_features=2, centers=10, cluster_std=1.0, shuffle=True, random_state=None)
-    # print(centers)
-    plt.scatter(centers[:,0], centers[:,1], c='red', s=50)
-    
-    plt.pause(2)
-
-    plt.close()
-
-    
-plt.show()
-    
+    X, y = generate_data(n_samples=1000, n_features=2, n_clusters=3, n_outliers=100, n_inliers=100, n_noise=100, random_state=0)
+    # plot data
+    plt.figure(figsize=(10, 10))
+    plt.scatter(X[:, 0], X[:, 1], c=y)
+    plt.show()
